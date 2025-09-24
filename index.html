@@ -46,6 +46,29 @@
             <p class="text-xl md:text-2xl mt-4 font-light max-w-4xl mx-auto">...No screens. No notifications. No pressure. <strong>Just a beautiful journey on paper.</strong></p>
         </header>
 
+        <!-- COUNTDOWN TIMER -->
+        <section class="my-12 text-center">
+            <h3 class="text-2xl md:text-3xl font-bold text-yellow-300 uppercase mb-4 animate-pulse">Special Launch Offer Ends In:</h3>
+            <div id="countdown" class="grid grid-cols-4 gap-4 max-w-lg mx-auto text-center bg-slate-800/50 p-4 rounded-xl">
+                <div>
+                    <p id="days" class="text-4xl md:text-6xl font-black text-rose-300">00</p>
+                    <span class="text-sm text-gray-400">Days</span>
+                </div>
+                <div>
+                    <p id="hours" class="text-4xl md:text-6xl font-black text-rose-300">00</p>
+                    <span class="text-sm text-gray-400">Hours</span>
+                </div>
+                <div>
+                    <p id="minutes" class="text-4xl md:text-6xl font-black text-rose-300">00</p>
+                    <span class="text-sm text-gray-400">Minutes</span>
+                </div>
+                <div>
+                    <p id="seconds" class="text-4xl md:text-6xl font-black text-rose-300">00</p>
+                    <span class="text-sm text-gray-400">Seconds</span>
+                </div>
+            </div>
+        </section>
+
         <!-- FEATURES -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-center mb-8 max-w-5xl mx-auto">
             <div class="bg-slate-800 p-4 rounded-lg border border-pink-400">
@@ -177,19 +200,22 @@
         
         <!-- TESTIMONIALS (GENERALIZED) -->
         <section class="my-16">
-            <h2 class="text-center text-4xl font-extrabold mb-8">What <span class="text-pink-300">REAL Women</span> Are Saying...</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-                <div class="bg-slate-800 p-6 rounded-lg border border-gray-700">
-                    <p class="italic">"This is my new favorite way to de-stress after a long day. The concepts are just genius for inspiration without being overwhelming. It's pure magic for my anxiety. I feel so calm after."</p>
-                    <p class="text-right mt-4 font-bold text-rose-300">- Jessica M.</p>
+            <h2 class="text-center text-4xl font-extrabold mb-8">Imagine How You'll Feel When You...</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                <div class="bg-slate-800 p-6 rounded-lg border border-gray-700 text-center">
+                    <div class="text-4xl mb-4">😌</div>
+                    <h3 class="text-2xl font-bold text-rose-300 mb-2">Finally Unwind</h3>
+                    <p class="italic">...the day's chaos fades away. It's just you, a quiet corner, and a page waiting for your personal touch. With every color, you're not just filling a space—you're reclaiming your peace.</p>
                 </div>
-                <div class="bg-slate-800 p-6 rounded-lg border border-gray-700">
-                    <p class="italic">"I never thought of myself as 'creative,' but these books make it so easy and fun. It's my go-to mindful activity now. I feel like I'm connecting with a deeper part of myself."</p>
-                    <p class="text-right mt-4 font-bold text-rose-300">- Amanda R.</p>
+                <div class="bg-slate-800 p-6 rounded-lg border border-gray-700 text-center">
+                    <div class="text-4xl mb-4">🎨</div>
+                    <h3 class="text-2xl font-bold text-rose-300 mb-2">Reignite Your Spark</h3>
+                    <p class="italic">...you feel the satisfaction of completing a beautiful scene that is uniquely *yours*. That forgotten creative spark? It's not gone. It's right here, waiting to be rediscovered.</p>
                 </div>
-                <div class="bg-slate-800 p-6 rounded-lg border border-gray-700">
-                    <p class="italic">"The perfect gift for any woman in your life. The scenes are so beautiful and elegant. It's more than a coloring book; it's an experience. I've already bought more for my friends!"</p>
-                    <p class="text-right mt-4 font-bold text-rose-300">- Chloe B.</p>
+                <div class="bg-slate-800 p-6 rounded-lg border border-gray-700 text-center">
+                     <div class="text-4xl mb-4">💖</div>
+                    <h3 class="text-2xl font-bold text-rose-300 mb-2">Reconnect With Yourself</h3>
+                    <p class="italic">...you've gifted yourself a moment of pure mindfulness. A screen-free sanctuary where you can hear your own thoughts again and connect with the authentic, vibrant woman you are.</p>
                 </div>
             </div>
         </section>
@@ -316,17 +342,59 @@
                 todayStart.setHours(0, 0, 0, 0);
                 const dailyQuery = query(visitsCollection, where("timestamp", ">=", Timestamp.fromDate(todayStart)));
                 const dailySnapshot = await getDocs(dailyQuery);
-                dailyVisitsEl.textContent = dailySnapshot.size.toLocaleString();
+            dailyVisitsEl.textContent = dailySnapshot.size.toLocaleString();
 
-            } catch (error) {
-                console.error("Error fetching stats:", error);
-                totalVisitsEl.textContent = 'N/A';
-                weeklyVisitsEl.textContent = 'N/A';
-                dailyVisitsEl.textContent = 'N/A';
-            }
+        } catch (error) {
+            console.error("Error fetching stats:", error);
+            totalVisitsEl.textContent = 'N/A';
+            weeklyVisitsEl.textContent = 'N/A';
+            dailyVisitsEl.textContent = 'N/A';
+        }
+    }
+
+    function startCountdown() {
+        // Set countdown to 3 days from the user's first visit.
+        let countdownEndDate = localStorage.getItem('countdownEndDate');
+        if (!countdownEndDate) {
+            const now = new Date();
+            now.setDate(now.getDate() + 3);
+            countdownEndDate = now.getTime();
+            localStorage.setItem('countdownEndDate', countdownEndDate);
         }
 
-        document.addEventListener('DOMContentLoaded', logAndFetchStats);
+        const interval = setInterval(() => {
+            const now = new Date().getTime();
+            const distance = countdownEndDate - now;
+
+            if (distance < 0) {
+                clearInterval(interval);
+                const countdownElement = document.getElementById('countdown');
+                if (countdownElement) {
+                     countdownElement.innerHTML = `<p class="col-span-4 text-xl font-bold text-red-400">This Special Offer Has Expired!</p>`;
+                }
+                // Also hide the "Special Launch Offer" text
+                const offerText = document.querySelector('.animate-pulse');
+                if(offerText) offerText.style.display = 'none';
+                return;
+            }
+
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+            
+            document.getElementById('days').innerText = String(days).padStart(2, '0');
+            document.getElementById('hours').innerText = String(hours).padStart(2, '0');
+            document.getElementById('minutes').innerText = String(minutes).padStart(2, '0');
+            document.getElementById('seconds').innerText = String(seconds).padStart(2, '0');
+        }, 1000);
+    }
+
+
+    document.addEventListener('DOMContentLoaded', () => {
+        logAndFetchStats();
+        startCountdown();
+    });
     </script>
 </body>
 </html>
