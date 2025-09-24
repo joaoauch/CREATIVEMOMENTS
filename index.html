@@ -268,13 +268,42 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, query, where, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- Firebase Config ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // This function will be called once the DOM is loaded.
+        async function initializeAppFeatures() {
+            
+            // --- Firebase Configuration ---
+            // For deploying on your own site (like GitHub Pages).
+            // You MUST replace the placeholder values below for the counter to work.
+            const selfHostedFirebaseConfig = {
+                apiKey: "YOUR_API_KEY",
+                authDomain: "YOUR_AUTH_DOMAIN",
+                projectId: "YOUR_PROJECT_ID",
+                storageBucket: "YOUR_STORAGE_BUCKET",
+                messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+                appId: "YOUR_APP_ID"
+            };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+            // This logic checks if we are in the Canvas environment which provides a config automatically.
+            const isCanvasEnv = typeof __firebase_config !== 'undefined';
+            const firebaseConfig = isCanvasEnv ? JSON.parse(__firebase_config) : selfHostedFirebaseConfig;
+            
+            // If the configuration isn't valid (still has placeholders), show a message and stop.
+            if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
+                console.error("Firebase is not configured. Visitor counter is disabled.");
+                const statsContainer = document.querySelector('.mt-6.bg-slate-800 .grid');
+                if (statsContainer) {
+                    statsContainer.innerHTML = '<p class="text-center text-yellow-400 col-span-4">Configure Firebase to enable stats</p>';
+                }
+                return; // Stop execution of Firebase-related features.
+            }
+
+            const appId = isCanvasEnv ? (typeof __app_id !== 'undefined' ? __app_id : 'default-app-id') : 'self-hosted-project';
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            
+            await logAndFetchStats(db, auth, appId, isCanvasEnv);
+        }
 
         async function getVisitorCountry() {
             try {
@@ -288,27 +317,29 @@
             }
         }
 
-        async function logAndFetchStats() {
+        async function logAndFetchStats(db, auth, appId, isCanvasEnv) {
             // --- Authenticate ---
             try {
                 const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                if (token) {
+                if (isCanvasEnv && token) {
                     await signInWithCustomToken(auth, token);
                 } else {
                     await signInAnonymously(auth);
                 }
             } catch (error) {
-                 console.error("Firebase sign-in failed:", error);
-                 return; // Stop execution if auth fails
+                 console.error("Firebase sign-in failed. Check config and that Anonymous Auth is enabled.", error);
+                 const statsContainer = document.querySelector('.mt-6.bg-slate-800 .grid');
+                 if (statsContainer) statsContainer.innerHTML = '<p class="text-center text-red-400 col-span-4">Stats failed to load</p>';
+                 return;
             }
 
-            const visitsCollection = collection(db, `artifacts/${appId}/public/data/visits`);
+            const collectionPath = isCanvasEnv ? `artifacts/${appId}/public/data/visits` : 'page_visits';
+            const visitsCollection = collection(db, collectionPath);
             
             // --- Log the current visit ---
             const visitorCountry = await getVisitorCountry();
             document.getElementById('visitor-country').textContent = visitorCountry;
             try {
-                // Check if a visit has already been logged for this session to avoid double counting on reloads.
                 if (!sessionStorage.getItem('visitLogged')) {
                     await addDoc(visitsCollection, {
                         timestamp: serverTimestamp(),
@@ -317,7 +348,7 @@
                     sessionStorage.setItem('visitLogged', 'true');
                 }
             } catch (error) {
-                console.error("Error logging visit:", error);
+                console.error("Error logging visit. Check your Firestore rules.", error);
             }
             
             // --- Fetch and Display Stats ---
@@ -326,41 +357,32 @@
             const dailyVisitsEl = document.getElementById('daily-visits');
 
             try {
-                // Total visits
                 const allDocsSnapshot = await getDocs(visitsCollection);
                 totalVisitsEl.textContent = allDocsSnapshot.size.toLocaleString();
 
-                // Weekly visits
                 const oneWeekAgo = new Date();
                 oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
                 const weeklyQuery = query(visitsCollection, where("timestamp", ">=", Timestamp.fromDate(oneWeekAgo)));
                 const weeklySnapshot = await getDocs(weeklyQuery);
                 weeklyVisitsEl.textContent = weeklySnapshot.size.toLocaleString();
 
-                // Daily visits
                 const todayStart = new Date();
                 todayStart.setHours(0, 0, 0, 0);
                 const dailyQuery = query(visitsCollection, where("timestamp", ">=", Timestamp.fromDate(todayStart)));
                 const dailySnapshot = await getDocs(dailyQuery);
-            dailyVisitsEl.textContent = dailySnapshot.size.toLocaleString();
+                dailyVisitsEl.textContent = dailySnapshot.size.toLocaleString();
 
-        } catch (error) {
-            console.error("Error fetching stats:", error);
-            totalVisitsEl.textContent = 'N/A';
-            weeklyVisitsEl.textContent = 'N/A';
-            dailyVisitsEl.textContent = 'N/A';
+            } catch (error) {
+                console.error("Error fetching stats. Check your Firestore rules.", error);
+                totalVisitsEl.textContent = '...';
+                weeklyVisitsEl.textContent = '...';
+                dailyVisitsEl.textContent = '...';
+            }
         }
-    }
 
     function startCountdown() {
-        // Set countdown to 3 days from the user's first visit.
-        let countdownEndDate = localStorage.getItem('countdownEndDate');
-        if (!countdownEndDate) {
-            const now = new Date();
-            now.setDate(now.getDate() + 3);
-            countdownEndDate = now.getTime();
-            localStorage.setItem('countdownEndDate', countdownEndDate);
-        }
+        // Set a fixed end date for the offer for all visitors.
+        const countdownEndDate = new Date('2025-09-28T00:00:00Z').getTime();
 
         const interval = setInterval(() => {
             const now = new Date().getTime();
@@ -372,7 +394,6 @@
                 if (countdownElement) {
                      countdownElement.innerHTML = `<p class="col-span-4 text-xl font-bold text-red-400">This Special Offer Has Expired!</p>`;
                 }
-                // Also hide the "Special Launch Offer" text
                 const offerText = document.querySelector('.animate-pulse');
                 if(offerText) offerText.style.display = 'none';
                 return;
@@ -390,9 +411,8 @@
         }, 1000);
     }
 
-
     document.addEventListener('DOMContentLoaded', () => {
-        logAndFetchStats();
+        initializeAppFeatures();
         startCountdown();
     });
     </script>
